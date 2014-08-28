@@ -23,22 +23,38 @@ local file_exists = function(name)
     if f~=nil then io.close(f) return true else return false end
 end
 
+-- 检测table是否包含某个值
+function table.contains(table, element)
+    for _, value in pairs(table) do
+        if value == element then
+            return true
+        end
+    end
+    return false
+end
+
+-------------------------------------
+-- 执行代码开始
+-------------------------------------
+
 -- 查找是否有图片大小的后缀
-local area = nil
+local thumbnail = nil
+local crop = nil
+local query = nil
 -- 从ngx.var获取参数的时候最好赋值到本地变量，否则会重复分配内存，在请求结束的时候才会释放
-local originalUri = ngx.var.uri; -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg_60x60.jpg
+local originalUri = ngx.var.uri; -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg?imageView/v1/thumbnail/200x200/crop/200x200
 local originalFile = ngx.var.file;
-local index = string.find(ngx.var.uri, "?");
-local index = string.find(ngx.var.uri, "([0-9]+)x([0-9]+)");
+local index = string.find(originalUri, "?");
+-- local index = string.find(ngx.var.uri, "([0-9]+)x([0-9]+)");
 
 if index then
-    originalUri = string.sub(ngx.var.uri, 0, index-2); -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
-    area = string.sub(ngx.var.uri, index);
-    index = string.find(area, "([.])");
-    area = string.sub(area, 0, index-1); -- 60x60
-
-    local index = string.find(originalFile, "([0-9]+)x([0-9]+)");
-    originalFile = string.sub(originalFile, 0, index-2); -- /opt/data/fastdfs/storage/data/
+    originalUri = string.sub(ngx.var.uri, 0, index-1); -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
+    query = string.sub(ngx.var.uri, index)
+    thumbnail = string.match(query, "thumbnail/([0-9]+x[0-9]*)")
+    crop = string.match(query, "crop/([0-9]+x[0-9]*)")
+ 
+    local index = string.find(originalFile, "?")
+    originalFile = string.sub(originalFile, 0, index-2) -- /opt/data/fastdfs/storage/data/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
 end
 
 -- 如果文件不存在，从tracker下载
@@ -60,30 +76,23 @@ if not file_exists(originalFile) then
     end
 end
 
-local image_sizes = {"240x180", "640x0", "640x480", "700x700", "1000x0", "1000x750"};
--- local image_sizes = {"80x80", "800x600", "40x40", "60x60"};
-function table.contains(table, element)
-    for _, value in pairs(table) do
-        if value == element then
-            return true
-        end
+if file_exists(originalFile) then
+    local thumbnail_sizes = {"240x180", "640x", "640x480", "700x700", "1000x", "1000x750"}
+
+    -- 如果在允许的缩略图大小中，创建缩略图
+    -- 如果有了是否还会再转呢？？
+    local gm = ngx.var.gm
+    if not gm then gm = "gm" end
+    if not crop then crop = thumbnail end
+    if table.contains(image_sizes, area) then
+        local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. thumbnail .. " -background white -gravity center -extent " .. crop .. " " .. ngx.var.file;
+        os.execute(command);
+    end;
+
+    if file_exists(ngx.var.file) then
+        --ngx.req.set_uri(ngx.var.uri, true);
+        ngx.exec(ngx.var.uri)
+    else
+        ngx.exit(404)
     end
-    return false
 end
-
--- 如果在允许的缩略图大小中，创建缩略图
--- 如果有了是否还会再转呢？？
-local gm = ngx.var.gm
-if not gm then gm = "gm" end
-if table.contains(image_sizes, area) then
-    local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. area .. " -background white -gravity center -extent " .. area .. " " .. ngx.var.file;
-    os.execute(command);
-end;
-
-if file_exists(ngx.var.file) then
-    --ngx.req.set_uri(ngx.var.uri, true);
-    ngx.exec(ngx.var.uri)
-else
-    ngx.exit(404)
-end
-
