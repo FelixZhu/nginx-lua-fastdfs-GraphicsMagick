@@ -57,6 +57,10 @@ if index then
     finalFile = ngx.var.image_file .. "_" .. thumbnail .. "_" .. crop
 end
 
+ngx.log(originalFile)
+ngx.log(originalUri)
+ngx.log(thumbnail)
+ngx.log(crop)
 
 -- 如果文件不存在，从tracker下载
 if not file_exists(originalFile) then
@@ -84,7 +88,7 @@ if file_exists(originalFile) then
     -- 如果在允许的缩略图大小中，创建缩略图
     local gm = ngx.var.gm
     if not gm then gm = "gm" end
-    if table.contains(image_sizes, area) then
+    if (table.contains(thumbnail_sizes, thumbnail) and table.contains(crop_sizes, crop))  then
         local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. thumbnail .. " -background white -gravity center -extent " .. crop .. " " .. finalFile
         os.execute(command)
     end
