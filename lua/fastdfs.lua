@@ -33,6 +33,18 @@ function table.contains(table, element)
     return false
 end
 
+local function gen_thumbnail_uri(uri, thumbnail, crop)
+    return string.gsub(uri, "/imageView.*", "_" .. thumbnail .. "_" .. crop)
+end
+
+local function gen_thumbnail_param(s)
+    if not s then
+        return s
+    else
+        return string.gsub(s, "x0", "x")
+    end
+end
+
 -------------------------------------
 -- 执行代码开始
 -------------------------------------
@@ -42,25 +54,25 @@ local thumbnail = nil
 local crop = nil
 local query = nil
 -- 从ngx.var获取参数的时候最好赋值到本地变量，否则会重复分配内存，在请求结束的时候才会释放
-local originalUri = ngx.var.uri; -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg?imageView/v1/thumbnail/200x200/crop/200x200
+local originalUri = ngx.var.uri; -- /g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
 local originalFile = ngx.var.image_file
+local queryString = ngx.var.image_query
 local finalFile = nil
-local index = string.find(originalUri, "?")
 
-if index then
-    originalUri = string.sub(ngx.var.uri, 0, index-1); -- http://192.168.110.218/g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
-    query = string.sub(ngx.var.uri, index)
-    thumbnail = string.match(query, "thumbnail/([0-9]+x[0-9]*)")
-    crop = string.match(query, "crop/([0-9]+x[0-9]*)")
-    if not crop then crop = thumbnail end
+thumbnail = gen_thumbnail_param(string.match(queryString, "thumbnail/([0-9]+x[0-9]*)"))
+crop = gen_thumbnail_param(string.match(queryString, "crop/([0-9]+x[0-9]*)"))
+if not crop then crop = thumbnail end
 
-    finalFile = ngx.var.image_file .. "_" .. thumbnail .. "_" .. crop
-end
+finalFile = originalFile .. "_" .. thumbnail .. "_" .. crop
 
-ngx.log(originalFile)
-ngx.log(originalUri)
-ngx.log(thumbnail)
-ngx.log(crop)
+--[[
+ngx.log(ngx.ERR, originalFile)
+ngx.log(ngx.ERR, originalUri)
+ngx.log(ngx.ERR, thumbnail)
+ngx.log(ngx.ERR, crop)
+ngx.log(ngx.ERR, queryString)
+ngx.log(ngx.ERR, finalFile)
+]]--
 
 -- 如果文件不存在，从tracker下载
 if not file_exists(originalFile) then
@@ -81,7 +93,7 @@ if not file_exists(originalFile) then
     end
 end
 
-if file_exists(originalFile) then
+if file_exists(originalFile) and not file_exists(finalFile) then
     local thumbnail_sizes = {"640x480", "640x360", "640x320"}
     local crop_sizes = {"240x180", "640x", "640x480", "700x700", "1000x", "1000x750"}
 
@@ -95,7 +107,9 @@ if file_exists(originalFile) then
 end
 
 if file_exists(finalFile) then
-    ngx.exec(originalUri .. "_" .. thumbnail .. "_" .. crop);
+    finalUri = string.gsub(originalUri, "/imageView.*", "_" .. thumbnail .. "_" .. crop)
+    ngx.exec(finalUri)
+    -- ngx.exec("/g1/M00/00/00/CgoYvFQFJRCAQohHAAGDNba3vj4585.jpg")
 else
     ngx.exit(404)
 end
