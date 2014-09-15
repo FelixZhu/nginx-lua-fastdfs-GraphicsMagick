@@ -94,7 +94,7 @@ if not file_exists(originalFile) then
 end
 
 if file_exists(originalFile) and not file_exists(finalFile) then
-    local thumbnail_sizes = {"640x480", "640x360", "640x320"}
+    local thumbnail_sizes = {"240x180", "640x", "640x480", "640x360", "640x320", "700x700", "1000x", "1000x750"}
     local crop_sizes = {"240x180", "640x", "640x480", "700x700", "1000x", "1000x750"}
 
     -- 如果在允许的缩略图大小中，创建缩略图
