@@ -90,6 +90,8 @@ if not file_exists(originalFile) then
             os.execute("mkdir -p " .. ngx.var.image_dir)
         end
         writefile(originalFile, data)
+    else
+        os.execute("rm " .. originalFile .. "*")
     end
 end
 
