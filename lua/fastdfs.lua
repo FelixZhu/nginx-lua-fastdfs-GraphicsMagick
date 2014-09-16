@@ -103,7 +103,7 @@ if file_exists(originalFile) and not file_exists(finalFile) then
     local gm = ngx.var.gm
     if not gm then gm = "gm" end
     if (table.contains(thumbnail_sizes, thumbnail) and table.contains(crop_sizes, crop))  then
-        local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. thumbnail .. " -background white -gravity center -extent " .. crop .. " " .. finalFile
+        local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. thumbnail .. "^ -background white -gravity center -crop " .. crop .. " " .. finalFile
         os.execute(command)
     end
 end
