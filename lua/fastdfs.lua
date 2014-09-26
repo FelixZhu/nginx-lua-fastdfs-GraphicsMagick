@@ -1,37 +1,4 @@
--- 写入文件
-local function writefile(filename, info)
-    local wfile=io.open(filename, "w") --写入文件(w覆盖)
-    assert(wfile)  --打开时验证是否出错
-    wfile:write(info)  --写入传入的内容
-    wfile:close()  --调用结束后记得关闭
-end
-
--- 检测路径是否目录
-local function is_dir(sPath)
-    if type(sPath) ~= "string" then return false end
-
-    local response = os.execute( "cd " .. sPath )
-    if response == 0 then
-        return true
-    end
-    return false
-end
-
--- 检测文件是否存在
-local file_exists = function(name)
-    local f=io.open(name,"r")
-    if f~=nil then io.close(f) return true else return false end
-end
-
--- 检测table是否包含某个值
-function table.contains(table, element)
-    for _, value in pairs(table) do
-        if value == element then
-            return true
-        end
-    end
-    return false
-end
+local tools = require('utils.tools')
 
 local function gen_thumbnail_uri(uri, thumbnail, crop)
     return string.gsub(uri, "/imageView.*", "_" .. thumbnail .. "_" .. crop)
@@ -54,29 +21,53 @@ local thumbnail = nil
 local crop = nil
 local query = nil
 -- 从ngx.var获取参数的时候最好赋值到本地变量，否则会重复分配内存，在请求结束的时候才会释放
-local originalUri = ngx.var.uri; -- /g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
-local originalFile = ngx.var.image_file
-local queryString = ngx.var.image_query
-local finalFile = nil
+local original_uri = ngx.var.uri; -- /g1/M00/00/33/CgoYvFP0RU2AfE_wAA5UF3DBJeE494.jpg
+local original_file = ngx.var.image_file
+local query_string = ngx.var.image_query
+local final_file = nil
 
-thumbnail = gen_thumbnail_param(string.match(queryString, "thumbnail/([0-9]+x[0-9]*)"))
-crop = gen_thumbnail_param(string.match(queryString, "crop/([0-9]+x[0-9]*)"))
+thumbnail = gen_thumbnail_param(string.match(query_string, "thumbnail/([0-9]+x[0-9]*)"))
+crop = gen_thumbnail_param(string.match(query_string, "crop/([0-9]+x[0-9]*)"))
 if not crop then crop = thumbnail end
 
-finalFile = originalFile .. "_" .. thumbnail .. "_" .. crop
+final_file = original_file .. "_" .. thumbnail .. "_" .. crop
 
 --[[
-ngx.log(ngx.ERR, originalFile)
-ngx.log(ngx.ERR, originalUri)
+ngx.log(ngx.ERR, original_file)
+ngx.log(ngx.ERR, original_uri)
 ngx.log(ngx.ERR, thumbnail)
 ngx.log(ngx.ERR, crop)
-ngx.log(ngx.ERR, queryString)
-ngx.log(ngx.ERR, finalFile)
+ngx.log(ngx.ERR, query_string)
+ngx.log(ngx.ERR, final_file)
 ]]--
 
 -- 如果文件不存在，从tracker下载
-if not file_exists(originalFile) then
-    local fileid = string.sub(originalUri, 2)
+if not tools.file_exists(original_file) then
+    local tracker = require('resty.fastdfs.tracker')
+    local storage = require('resty.fastdfs.storage')
+
+    local fileid = original_uri
+
+    local tk = tracker:new()
+    tk:set_timeout(3000)
+    local ok, err = tk:connect({host=ngx.var.tracker_ip, port=22122})
+    if not ok then
+        ngx.log(ngx.ERR, "connect tracker error")
+        ngx.exit(200)
+    end
+
+    local res, err = tk:query_storage_fetch1(fileid)
+    if not res then
+        ngx.log(ngx.ERR, "query storage error, fileid:" .. fileid)
+        ngx.exit(200)
+    end
+
+    os.execute("rm " .. original_file .. "*")
+    ngx.redirect("http://" .. res['host'] .. fileid)
+
+
+    --[[
+    local fileid = string.sub(original_uri, 2)
     local fastdfs = require('restyfastdfs')
 
     local fdfs = fastdfs:new()
@@ -86,32 +77,48 @@ if not file_exists(originalFile) then
     fdfs:set_storage_keepalive(0, 100)
     local data = fdfs:do_download(fileid)
     if data then
-        if not is_dir(ngx.var.image_dir) then
+        if not tools.is_dir(ngx.var.image_dir) then
             os.execute("mkdir -p " .. ngx.var.image_dir)
         end
-        writefile(originalFile, data)
+        tools.writefile(original_file, data)
     else
-        os.execute("rm " .. originalFile .. "*")
+        os.execute("rm " .. original_file .. "*")
     end
+    ]]--
 end
 
-if file_exists(originalFile) and not file_exists(finalFile) then
-    local thumbnail_sizes = {"240x180", "640x", "640x480", "640x360", "640x320", "700x700", "1000x", "1000x750"}
-    local crop_sizes = {"240x180", "640x", "640x480", "700x700", "1000x", "1000x750"}
+if (tools.file_exists(original_file) and
+    not tools.file_exists(final_file)) then
+    local thumbnail_sizes = {
+        "240x180", "640x", "640x480",
+        "640x360", "640x320", "700x700",
+        "1000x", "1000x750",
+    }
+    local crop_sizes = {
+        "240x180", "640x", "640x480",
+        "700x700", "1000x", "1000x750"
+    }
 
     -- 如果在允许的缩略图大小中，创建缩略图
     local gm = ngx.var.gm
     if not gm then gm = "gm" end
-    if (table.contains(thumbnail_sizes, thumbnail) and table.contains(crop_sizes, crop))  then
-        local command = ngx.var.gm .. " convert " .. originalFile  .. " -thumbnail " .. thumbnail .. "^ -background white -gravity center -crop " .. crop .. " " .. finalFile
+    if (tools.table.contains(thumbnail_sizes, thumbnail) and
+        tools.table.contains(crop_sizes, crop))  then
+        local command_list = {
+            ngx.var.gm, "convert", original_file, "-thumbnail",
+            thumbnail.."^", "-background white -gravity center -crop",
+            crop, final_file
+        }
+        local command = table.concat(command_list, " ")
         os.execute(command)
     end
 end
 
-if file_exists(finalFile) then
-    finalUri = string.gsub(originalUri, "/imageView.*", "_" .. thumbnail .. "_" .. crop)
-    ngx.exec(finalUri)
-    -- ngx.exec("/g1/M00/00/00/CgoYvFQFJRCAQohHAAGDNba3vj4585.jpg")
+if tools.file_exists(final_file) then
+    -- 拼凑最终URL并内部跳转
+    final_uri = string.gsub(original_uri, "/imageView.*",
+        "_" .. thumbnail .. "_" .. crop)
+    ngx.exec(final_uri)
 else
     ngx.exit(404)
 end
