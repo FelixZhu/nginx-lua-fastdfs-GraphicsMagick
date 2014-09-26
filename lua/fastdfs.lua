@@ -102,8 +102,8 @@ if (tools.file_exists(original_file) and
     -- 如果在允许的缩略图大小中，创建缩略图
     local gm = ngx.var.gm
     if not gm then gm = "gm" end
-    if (tools.table.contains(thumbnail_sizes, thumbnail) and
-        tools.table.contains(crop_sizes, crop))  then
+    if (tools.table_contains(thumbnail_sizes, thumbnail) and
+        tools.table_contains(crop_sizes, crop))  then
         local command_list = {
             ngx.var.gm, "convert", original_file, "-thumbnail",
             thumbnail.."^", "-background white -gravity center -crop",
