@@ -1,6 +1,9 @@
 local tracker = require('resty.fastdfs.tracker')
 local storage = require('resty.fastdfs.storage')
 
+
+module(...)
+
 function _dump_res(res)
     for i in pairs(res) do
         ngx.say(string.format("%s:%s",i, res[i]))

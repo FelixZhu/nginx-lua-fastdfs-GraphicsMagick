@@ -1,4 +1,6 @@
 
+module(...)
+
 -- 写入文件
 local function writefile(filename, info)
     local wfile=io.open(filename, "w") --写入文件(w覆盖)
