@@ -39,14 +39,15 @@ ngx.log(ngx.ERR, thumbnail)
 ngx.log(ngx.ERR, crop)
 ngx.log(ngx.ERR, query_string)
 ngx.log(ngx.ERR, final_file)
-]]--
+--]]--
+
 
 -- 如果文件不存在，从tracker下载
 if not tools.file_exists(original_file) then
     local tracker = require('resty.fastdfs.tracker')
     local storage = require('resty.fastdfs.storage')
 
-    local fileid = original_uri
+    local fileid = string.match(original_uri, "/(.*)/imageView.*")
 
     local tk = tracker:new()
     tk:set_timeout(3000)
@@ -62,29 +63,13 @@ if not tools.file_exists(original_file) then
         ngx.exit(200)
     end
 
-    os.execute("rm " .. original_file .. "*")
-    ngx.redirect("http://" .. res['host'] .. fileid)
-
-
     --[[
-    local fileid = string.sub(original_uri, 2)
-    local fastdfs = require('restyfastdfs')
+    ngx.log(ngx.ERR, fileid)
+    ngx.log(ngx.ERR, res['host'])
+    --]]--
 
-    local fdfs = fastdfs:new()
-    fdfs:set_tracker(ngx.var.tracker_ip, 22122)
-    fdfs:set_timeout(1000)
-    fdfs:set_tracker_keepalive(0, 100)
-    fdfs:set_storage_keepalive(0, 100)
-    local data = fdfs:do_download(fileid)
-    if data then
-        if not tools.is_dir(ngx.var.image_dir) then
-            os.execute("mkdir -p " .. ngx.var.image_dir)
-        end
-        tools.writefile(original_file, data)
-    else
-        os.execute("rm " .. original_file .. "*")
-    end
-    ]]--
+    os.execute("rm " .. original_file .. "*")
+    ngx.redirect("http://" .. res['host'] .. '/' .. fileid)
 end
 
 if (tools.file_exists(original_file) and
