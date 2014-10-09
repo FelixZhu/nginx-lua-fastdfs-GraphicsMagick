@@ -68,7 +68,7 @@ if not tools.file_exists(original_file) then
     ngx.log(ngx.ERR, res['host'])
     --]]--
 
-    os.execute("rm " .. original_file .. "*")
+    os.execute("rm " .. original_file .. "_*")
     ngx.redirect("http://" .. res['host'] .. '/' .. fileid)
 end
 
