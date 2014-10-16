@@ -69,8 +69,11 @@ if not tools.file_exists(original_file) then
     --]]--
     if tools.file_exists(original_file .. '_240x180_240x180') then
         os.execute("rm " .. original_file .. "_*")
+        ngx.exit(404)
+    else
+        -- ngx.redirect("http://" .. res['host'] .. "/" .. fileid .. "/imageView/v1" .. query_string)
+        ngx.redirect("http://" .. res['host'] .. "/" .. fileid)
     end
-    ngx.redirect("http://" .. res['host'] .. "/" .. fileid .. "/imageView/v1" .. query_string)
 end
 
 if (tools.file_exists(original_file) and
